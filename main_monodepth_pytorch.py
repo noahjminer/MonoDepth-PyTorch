@@ -8,6 +8,7 @@ import torch.optim as optim
 
 from loss import MonodepthLoss
 from utils import get_model, to_device, prepare_dataloader
+from torchvision import transforms
 
 # plot params
 
@@ -141,21 +142,26 @@ class Model:
                                                                  False, args.batch_size,
                                                                  (args.input_height, args.input_width),
                                                                  args.num_workers)
-        else:
+        elif args.mode == 'test':
             self.model.load_state_dict(torch.load(args.model_path))
             args.augment_parameters = None
             args.do_augmentation = False
             args.batch_size = 1
+        else: 
+            args.batch_size = 1
+            args.augment_parameters = None
+            args.do_augmentation = False
 
         # Load data
-        self.output_directory = args.output_directory
-        self.input_height = args.input_height
-        self.input_width = args.input_width
+        if args.mode != 'predict':
+            self.output_directory = args.output_directory
+            self.input_height = args.input_height
+            self.input_width = args.input_width
 
-        self.n_img, self.loader = prepare_dataloader(args.data_dir, args.mode, args.augment_parameters,
-                                                     args.do_augmentation, args.batch_size,
-                                                     (args.input_height, args.input_width),
-                                                     args.num_workers)
+            self.n_img, self.loader = prepare_dataloader(args.data_dir, args.mode, args.augment_parameters,
+                                                        args.do_augmentation, args.batch_size,
+                                                        (args.input_height, args.input_width),
+                                                        args.num_workers)
 
 
         if 'cuda' in self.device:
@@ -279,6 +285,13 @@ class Model:
 
     def load(self, path):
         self.model.load_state_dict(torch.load(path))
+    
+    def predict(self, input_img):
+        with torch.no_grad():
+            self.model.eval()
+            input_img = transforms.ToTensor()(input_img).unsqueeze(0).to(torch.device('cuda:0'))
+            return self.model(input_img)
+
 
     def test(self):
         self.model.eval()
